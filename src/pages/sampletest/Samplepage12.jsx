@@ -147,7 +147,7 @@ function TreeTable() {
   const toggleRow = (emp_no) => {
     setExpandedRows((prev) => ({
       ...prev,
-      [emp_no]: !prev[emp_no],
+      [emp_no]: !prev[emp_no], 
     }));
   };
 
