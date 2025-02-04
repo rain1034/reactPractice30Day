@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import "./SamplePage12.css";
 import axios from "axios";
 
@@ -32,13 +32,22 @@ function TreeTable() {
     deptList : []
   });
 
+  //테이블부서 대분류코드
+  const [searchTableType, setSearchTableType] = useState({
+    deptList : []
+  });
+  //테이블부서 상세분류코드
+  const [searchTableDType, setSearchTableDType] = useState({
+    deptList : []
+  });
+
   //row readOnly
   const [readOnlyYn, setReadOnlyYn] = useState({});
   
   useEffect(() => {
     //조회조건
-    searchTypeList('','1');
-  },[]);
+    searchTypeList('','1','top');
+  },[],[searchTableDType]);
 
   //수정시 사용할 변수
   const [modifyEmpValue, setModifyEmpValue] = useState({
@@ -47,7 +56,7 @@ function TreeTable() {
   });
 
   //공통코드 조회 *공통코드 테이블 사용하지않고 내가만든거 쓰느라 그지같은 분기로 만듬
-  const searchTypeList = useCallback((typeCode, lv) => {
+  const searchTypeList = useCallback((typeCode, lv, loc) => {
     let params = new URLSearchParams();
     //params.append("emp_name", filters.search);
     params.append("pagesize", 100);
@@ -59,16 +68,28 @@ function TreeTable() {
     axios
       .post("/system/listdetailcode", params)
       .then((res) => {
-        console.log("result console : " + JSON.stringify(res));
-        if(lv === "1"){
+        //console.log("result console : " + JSON.stringify(res));
+        if(lv === "1" && loc === "top"){
           setSearchType({
             ...searchType
             , deptList: res.data.commcodeModel
           })
-        }else{
+        }else if(lv === "2" && loc === "top"){
           setSearchDType({
             ...searchDType
             , deptList: res.data.commcodeModel
+          })
+        }else if(lv === "1" && loc === "table"){
+          setSearchTableType({
+            //...searchTableType
+            //, 
+            deptList: res.data.commcodeModel
+          })
+        }else if(lv === "2" && loc === "table"){
+          setSearchTableDType({
+            //...searchTableDType
+            //, 
+            deptList: res.data.commcodeModel
           })
         }
         /*
@@ -82,7 +103,7 @@ function TreeTable() {
         console.log("list error");
         alert(err.message);
       });
-  }, [searchType]);
+  }, [searchType, searchTableType]);
 
   const searchlist = async () => {
 
@@ -98,7 +119,7 @@ function TreeTable() {
         //setTotalcnt(res.data.listcnt);
         //setNoticelist(res.data.listdata);
         //console.log("result console : " + res);
-        console.log("result console : " + JSON.stringify(res));
+        /*console.log("result console : " + JSON.stringify(res));
         console.log(
           "result console : " +
             res.data.totalcnt +
@@ -108,7 +129,7 @@ function TreeTable() {
             JSON.stringify(res.status) +
             " : " +
             JSON.stringify(res.statusText)
-        );
+        );*/
         setFilteredData({
           ...filteredData,
           empList: res.data.empInfolist,
@@ -130,6 +151,7 @@ function TreeTable() {
     }));
   };
 
+  //상단 조회조건
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFilters((prev) => ({
@@ -141,12 +163,26 @@ function TreeTable() {
     console.log("value ="+value);
     //부서대분류 변경시 중분류 변경
     if(name==="type"){
-      searchTypeList(value,'2');
-    }
-    
+      searchTypeList(value,'2','top');
+    }   
+  };
+
+  //테이블 로우 부서목록변경
+  const handleRowInputChange = (e) => {
+    const { name, value } = e.target;
+    console.log('handleRowInputChange e.target')
+    console.log(e.target)
+    console.log("handleInputChange");
+    console.log("name ="+name);
+    console.log("value ="+value);
     //로우에서 수정시
     if(name==="rowType"){
-      searchTypeList(value,'2');
+      setSearchTableType((prev) => ({
+        ...prev,
+        [name]: value,
+        //[empNo]: value,
+      }));
+      searchTypeList(value,'2','table');
     }
     
   };
@@ -161,13 +197,17 @@ function TreeTable() {
     return `${year}-${month}-${day}`;
   }
 
-  //수정버튼 클릭이벤트
-  //empNo : 해당로우 사원번호
-  const modifyEmpInfo = (empNo) => {
+  //수정버튼 클릭이벤트 
+  const modifyEmpInfo = (empInfo) => {
+    console.log('modifyEmpInfo');
+    console.log(empInfo);
+    //여기서 현재를 제외한 모두를 false로 만드는방법이 뭘까
     setReadOnlyYn((prev) => ({
       ...prev,
-      [empNo]: !prev[empNo],
+      [empInfo.emp_no]: !prev[empInfo.emp_no],
     }));
+    searchTypeList('','1','table', empInfo.emo);
+    //searchTypeList(empInfo.up_dept_cd,'2','table');
   }
   //저장버튼
   const saveEmpInfo = (empInfo) => {
@@ -185,6 +225,12 @@ function TreeTable() {
     console.log('pre list console');
     searchlist();
   };
+
+  //table selectbox 목록세팅
+  const makeDetail = (empInfo) => {
+    console.log('makeDetail');
+    console.log(empInfo);
+  }
 
   const renderRows = (nodes, level = 0) => {
 
@@ -206,25 +252,37 @@ function TreeTable() {
             <select
               name="rowType"
               value={node.up_dept_cd}
-              onChange={handleInputChange}
+              onChange={handleRowInputChange}
               className="w-full border border-gray-100 rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-100"
             >
-              {searchType.deptList.map((item, index) => (
+              {searchTableType.deptList.map((item, index) => (
                 <option key={index} value={item.detail_code}>{item.detail_name}</option>
               ))
               }
             </select>
-            <select
-              name="rowDType"
-              value={node.dept_cd}
-              onChange={handleInputChange}
-              className="w-full border border-gray-100 rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-100"
-            >
-              {searchDType.deptList.map((item, index) => (
-                <option key={index} value={item.detail_code}>{item.detail_name}</option>
-              ))
+            {
+              (()=>{
+                //가져오는 list를 만들고 그 후에 해당 list를 이용해서 selectbox를 채우는형식으로 제작
+                let list = makeDetail(node);
+                console.log('list');
+                console.log(list);
+                return (
+                  <select
+                    name="rowDType"
+                    value={node.dept_cd}
+                    onChange={handleRowInputChange}
+                    className="w-full border border-gray-100 rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-100"
+                  >
+                    {searchTableDType.deptList.map((item, index) => (
+                      <option key={index} value={item.detail_code}>{item.detail_name}</option>
+                    ))
+                    }
+                  </select>
+                )
+                
               }
-            </select>
+            )()
+            }
             </>
             : node.dept_name
             : node.dept_name}
@@ -257,15 +315,14 @@ function TreeTable() {
               </button> 
               <button
                 className="btn btn-default mx-2"
-                onClick={() => modifyEmpInfo(node.emp_no)}
+                onClick={() => modifyEmpInfo(node)}
               > 취소
               </button> 
               </>
               : 
               <button
                 className="btn btn-default mx-2"
-                //버튼 click시 그냥 modifyEmpInfo(node.emp_no)만하면 오류남 ES6문법으로 해야됨
-                onClick={() => modifyEmpInfo(node.emp_no)}
+                onClick={() => modifyEmpInfo(node)}
               > 수정
               </button>
               : ''}
